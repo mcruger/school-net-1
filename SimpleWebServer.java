@@ -35,6 +35,9 @@ public class SimpleWebServer {
 
         //set port string from flag to int
         int portNum = Integer.parseInt(port);
+        //boolean thinking = true;
+
+        while(true){
 
         try {
             //init ServerSocket and Socket to send/receive messages from client
@@ -47,26 +50,57 @@ public class SimpleWebServer {
 
             //capture input sent from client
             String inputLine;
-            while ((inputLine = in.readLine()) != null) {
+            //while ((inputLine = in.readLine()) != null) {
                 //echo the message received from client back out to the client
+                while((inputLine = in.readLine()) == null);
+                //thinking = true;
+
                 if(inputLine.startsWith("GET")){
                     //out.println("You made a get request!");
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
                     Scanner scan = new Scanner(fin);
+                    out.println(getHeader(inputLine.substring(5, nHTTPStart - 1)));
+                    out.println("");
                     while(scan.hasNextLine()){
                         out.println(scan.nextLine());
                     }
+                    //System.out.println(inputLine);
+
+                    continue;
+
+                } else if(inputLine.startsWith("HEAD")) {
+                    int nHTTPStart = inputLine.indexOf("HTTP/");
+                    out.println(getHeader(inputLine.substring(6, nHTTPStart - 1)));
+
+                    continue;
+                } else {
+                    out.println("HTTP/ 403 Invalid Request");
                 }
                 //out.println("Echo" + inputLine);
                 //output the message to console received from the client
-                System.out.println(inputLine);
-            }
+
+
 
         } catch (IOException e) {
             //catch errors listening on port used for server/client socket connections
             System.out.println("Error listening on port "+ portNum + " or listening for a connection");
             System.out.println(e.getMessage());
+            //break;
+        }
+        }
+    }
+
+    public static String getHeader(String inputLine){
+        try {
+            File F = new File(inputLine);
+            Scanner s = new Scanner(F);
+            return "HTTP/1.1 200 OK";
+        } catch (FileNotFoundException e){
+
+
+
+            return "HTTP/1.1 404 Not Found";
         }
     }
 }
