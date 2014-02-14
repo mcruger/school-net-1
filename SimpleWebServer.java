@@ -8,6 +8,7 @@
 
 import java.net.*;
 import java.io.*;
+import java.util.Scanner;
 
 /*******************************************
 
@@ -48,10 +49,20 @@ public class SimpleWebServer {
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 //echo the message received from client back out to the client
-                out.println(inputLine);
+                if(inputLine.startsWith("GET")){
+                    //out.println("You made a get request!");
+                    int nHTTPStart = inputLine.indexOf("HTTP/");
+                    File fin = new File(inputLine.substring(5, nHTTPStart - 1));
+                    Scanner scan = new Scanner(fin);
+                    while(scan.hasNextLine()){
+                        out.println(scan.nextLine());
+                    }
+                }
+                //out.println("Echo" + inputLine);
                 //output the message to console received from the client
                 System.out.println(inputLine);
             }
+
         } catch (IOException e) {
             //catch errors listening on port used for server/client socket connections
             System.out.println("Error listening on port "+ portNum + " or listening for a connection");
