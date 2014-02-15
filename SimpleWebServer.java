@@ -10,25 +10,27 @@ import java.net.*;
 import java.io.*;
 import java.util.Scanner;
 
-/*******************************************
+/**
+ * ****************************************
+ * <p/>
+ * NOTE:
+ * I used the -D option to pass my flags as -Dkey=value so I didn't have to parse them from args.
+ * example usage below. You can use either FQDN or ip for host flag.
+ * <p/>
+ * example usage:
+ * java -Dport=6789 ServerEcho
+ * <p/>
+ * ******************************************
+ */
 
- NOTE:
- I used the -D option to pass my flags as -Dkey=value so I didn't have to parse them from args.
- example usage below. You can use either FQDN or ip for host flag.
-
- example usage:
- java -Dport=6789 ServerEcho
-
- ********************************************/
-
-public class SimpleWebServer {
-    public static void main(String[] args) throws IOException {
+public class SimpleWebServer{
+    public static void main(String[] args) throws IOException{
 
         //get value passed in from port flag
         String port = System.getProperty("port");
 
         //validate port flag, show usage if incorrect
-        if (port == null || port.isEmpty() || port == "") {
+        if (port == null || port.isEmpty() || port == ""){
             System.err.println("Usage: java -Dport=<port number> ServerEcho");
             System.exit(1);
         }
@@ -39,65 +41,84 @@ public class SimpleWebServer {
 
         while(true){
 
-        try {
-            //init ServerSocket and Socket to send/receive messages from client
-            ServerSocket serverSocket = new ServerSocket(portNum);
-            Socket clientSocket = serverSocket.accept();
+            try{
+                //init ServerSocket and Socket to send/receive messages from client
+                ServerSocket serverSocket = new ServerSocket(portNum);
+                Socket clientSocket = serverSocket.accept();
 
-            //init PrintWriter and BufferedReader to send/receive messages to/from client socket
-            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                //init PrintWriter and BufferedReader to send/receive messages to/from client socket
+                DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-            //capture input sent from client
-            String inputLine;
-            //while ((inputLine = in.readLine()) != null) {
+                //capture input sent from client
+                String inputLine;
+                //while ((inputLine = in.readLine()) != null) {
                 //echo the message received from client back out to the client
-                while((inputLine = in.readLine()) == null);
+                //while((inputLine = in.readLine()) == null) ;
                 //thinking = true;
 
-                if(inputLine.startsWith("GET")){
-                    //out.println("You made a get request!");
+                if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
-                    Scanner scan = new Scanner(fin);
-                    out.println(getHeader(inputLine.substring(5, nHTTPStart - 1)));
-                    out.println("");
-                    while(scan.hasNextLine()){
-                        out.println(scan.nextLine());
-                    }
-                    //System.out.println(inputLine);
+                    FileInputStream fin2 = new FileInputStream(fin);
+                    String x = getHeader(inputLine.substring(5, nHTTPStart - 1));
+                    out.writeBytes(x + "\r\n");
+                    //out.writeBytes("\r\n");
+                    int numBytes = (int) fin.length();
+                    System.out.println(numBytes);
+                    byte[] fileInBytes = new byte[numBytes];
+                    fin2.read(fileInBytes);
+                    out.write(fileInBytes, 0, numBytes);
 
                     continue;
 
-                } else if(inputLine.startsWith("HEAD")) {
+                } else if (inputLine.startsWith("HEAD")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
-                    out.println(getHeader(inputLine.substring(6, nHTTPStart - 1)));
+                    out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1)));
 
-                    continue;
+                    //continue;
                 } else {
-                    out.println("HTTP/ 403 Invalid Request");
+                    out.writeBytes("HTTP/ 403 Invalid Request");
                 }
                 //out.println("Echo" + inputLine);
                 //output the message to console received from the client
 
 
+            } catch(IOException e){
+                //catch errors listening on port used for server/client socket connections
+                System.out.println("Error listening on port " + portNum + " or listening for a connection");
+                System.out.println(e.getMessage());
+                //break;
+            }
+        }
 
-        } catch (IOException e) {
-            //catch errors listening on port used for server/client socket connections
-            System.out.println("Error listening on port "+ portNum + " or listening for a connection");
-            System.out.println(e.getMessage());
-            //break;
-        }
-        }
     }
 
     public static String getHeader(String inputLine){
-        try {
+        try{
             File F = new File(inputLine);
             Scanner s = new Scanner(F);
-            return "HTTP/1.1 200 OK";
-        } catch (FileNotFoundException e){
-
+            String type = null;
+            if (inputLine.endsWith(".html")){
+                type = "text/html";
+            }
+            if (inputLine.endsWith(".png")){
+                type = "image/png";
+            }
+            if(inputLine.endsWith(".txt")){
+                type = "text/plain";
+            }
+            if(inputLine.endsWith(".jpeg") || inputLine.endsWith("jpg")){
+                type = "image/jpeg";
+            }
+            if(inputLine.endsWith(".pdf")){
+                type = "application/pdf";
+            }
+            String header =  "HTTP/1.1 200 OK \r\n";
+            header += "Content-Length: " + F.length() + "\r\n";
+            header += "Content-Type: " + type + "\r\n";
+            return header;
+        } catch(FileNotFoundException e){
 
 
             return "HTTP/1.1 404 Not Found";
