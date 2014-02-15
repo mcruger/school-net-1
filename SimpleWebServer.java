@@ -60,15 +60,19 @@ public class SimpleWebServer{
                 if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
-                    FileInputStream fin2 = new FileInputStream(fin);
+
                     String x = getHeader(inputLine.substring(5, nHTTPStart - 1));
                     out.writeBytes(x + "\r\n");
-                    //out.writeBytes("\r\n");
-                    int numBytes = (int) fin.length();
-                    System.out.println(numBytes);
-                    byte[] fileInBytes = new byte[numBytes];
-                    fin2.read(fileInBytes);
-                    out.write(fileInBytes, 0, numBytes);
+                    if(x.contains("200")){
+                        FileInputStream fin2 = new FileInputStream(fin);
+
+                        //out.writeBytes("\r\n");
+                        int numBytes = (int) fin.length();
+                        System.out.println(numBytes);
+                        byte[] fileInBytes = new byte[numBytes];
+                        fin2.read(fileInBytes);
+                        out.write(fileInBytes, 0, numBytes);
+                    }
 
                     continue;
 
@@ -76,7 +80,7 @@ public class SimpleWebServer{
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1)));
 
-                    //continue;
+                    continue;
                 } else {
                     out.writeBytes("HTTP/ 403 Invalid Request");
                 }
