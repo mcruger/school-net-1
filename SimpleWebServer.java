@@ -149,7 +149,9 @@ public class SimpleWebServer{
                 while(s.hasNextLine()){
                     String[] stuff = s.nextLine().split(" ");
                     if(stuff[0].equals(path)){
-                        return "HTTP/1.1 301 Redirect +\r\n" + "Location: " + stuff[1];
+                        String header = "HTTP/1.1 301 Redirect \r\n";
+                        header += "Location: " + stuff[1] +"\r\n";
+                        return header;
                     }
                 }
 
