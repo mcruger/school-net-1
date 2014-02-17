@@ -26,6 +26,9 @@ import java.util.Scanner;
 public class SimpleWebServer{
     public static void main(String[] args) throws IOException{
 
+        boolean bRedirect = false;
+        String strRedirect = "";
+
         //get value passed in from port flag
         String port = System.getProperty("port");
 
@@ -56,14 +59,19 @@ public class SimpleWebServer{
                 //echo the message received from client back out to the client
                 //while((inputLine = in.readLine()) == null) ;
                 //thinking = true;
+                if(bRedirect){
 
-                if ((inputLine = in.readLine()).startsWith("GET")){
+                    bRedirect = false;
+                    continue;
+                }
+
+                else if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
 
-                    String x = getHeader(inputLine.substring(5, nHTTPStart - 1));
-                    out.writeBytes(x + "\r\n");
-                    if(x.contains("200")){
+                    String header = getHeader(inputLine.substring(5, nHTTPStart - 1));
+                    out.writeBytes(header + "\r\n");
+                    if(header.contains("200 OK")){
                         FileInputStream fin2 = new FileInputStream(fin);
 
                         //out.writeBytes("\r\n");
@@ -72,6 +80,14 @@ public class SimpleWebServer{
                         byte[] fileInBytes = new byte[numBytes];
                         fin2.read(fileInBytes);
                         out.write(fileInBytes, 0, numBytes);
+                    } else if(header.contains("301 Re")){
+                        String site = header.substring(header.lastIndexOf(": ") + 2);
+                        URL urlSite = new URL(site);
+                        BufferedReader urlin = new BufferedReader(new InputStreamReader(urlSite.openStream()));
+                        String example;
+                        while((example = urlin.readLine()) != null){
+                            out.writeBytes(example);
+                        }
                     }
 
                     continue;
@@ -123,6 +139,21 @@ public class SimpleWebServer{
             header += "Content-Type: " + type + "\r\n";
             return header;
         } catch(FileNotFoundException e){
+
+            String path = inputLine.substring(3);
+
+            try{
+                File redir = new File("www/redirect.defs");
+                Scanner s = new Scanner(redir);
+
+                while(s.hasNextLine()){
+                    String[] stuff = s.nextLine().split(" ");
+                    if(stuff[0].equals(path)){
+                        return "HTTP/1.1 301 Redirect +\r\n" + "Location: " + stuff[1];
+                    }
+                }
+
+            } catch(FileNotFoundException e2){}
 
 
             return "HTTP/1.1 404 Not Found";
