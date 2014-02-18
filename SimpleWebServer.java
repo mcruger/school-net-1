@@ -42,11 +42,15 @@ public class SimpleWebServer{
         int portNum = Integer.parseInt(port);
         //boolean thinking = true;
 
+        ServerSocket serverSocket = new ServerSocket(portNum);
+
+        //boolean holding = false;
+
         while(true){
 
             try{
                 //init ServerSocket and Socket to send/receive messages from client
-                ServerSocket serverSocket = new ServerSocket(portNum);
+                //ServerSocket serverSocket = new ServerSocket(portNum);
                 Socket clientSocket = serverSocket.accept();
 
                 //init PrintWriter and BufferedReader to send/receive messages to/from client socket
@@ -55,23 +59,14 @@ public class SimpleWebServer{
 
                 //capture input sent from client
                 String inputLine;
-                //while ((inputLine = in.readLine()) != null) {
-                //echo the message received from client back out to the client
-                //while((inputLine = in.readLine()) == null) ;
-                //thinking = true;
-                if(bRedirect){
 
-                    bRedirect = false;
-                    continue;
-                }
-
-                else if ((inputLine = in.readLine()).startsWith("GET")){
+                if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
 
                     String header = getHeader(inputLine.substring(5, nHTTPStart - 1));
                     out.writeBytes(header + "\r\n");
-                    if(header.contains("200 OK")){
+                    if (header.contains("200 OK")){
                         FileInputStream fin2 = new FileInputStream(fin);
 
                         //out.writeBytes("\r\n");
@@ -80,7 +75,7 @@ public class SimpleWebServer{
                         byte[] fileInBytes = new byte[numBytes];
                         fin2.read(fileInBytes);
                         out.write(fileInBytes, 0, numBytes);
-                    } else if(header.contains("301 Re")){
+                    } else if (header.contains("301 Mo")){
                         String site = header.substring(header.lastIndexOf(": ") + 2);
                         URL urlSite = new URL(site);
                         BufferedReader urlin = new BufferedReader(new InputStreamReader(urlSite.openStream()));
@@ -90,15 +85,18 @@ public class SimpleWebServer{
                         }
                     }
 
+                    clientSocket.close();
                     continue;
 
                 } else if (inputLine.startsWith("HEAD")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1)));
 
+                    clientSocket.close();
                     continue;
                 } else {
-                    out.writeBytes("HTTP/ 403 Invalid Request");
+                    out.writeBytes("HTTP/ 403 Invalid Request\r\nConnection: close\r\n");
+                    clientSocket.close();
                 }
                 //out.println("Echo" + inputLine);
                 //output the message to console received from the client
@@ -115,32 +113,35 @@ public class SimpleWebServer{
     }
 
     public static String getHeader(String inputLine){
-        try{
-            File F = new File(inputLine);
-            Scanner s = new Scanner(F);
+        File F = new File(inputLine);
+        if (F.exists()){
+            System.out.println("Exists");
+            //Scanner s = new Scanner(F);
             String type = null;
-            if (inputLine.endsWith(".html")){
+            if (inputLine.endsWith(".defs")){
+                return "HTTP/1.1 403 Forbidden \r\nConnection: close\r\n";
+            } else if (inputLine.endsWith(".html")){
                 type = "text/html";
-            }
-            if (inputLine.endsWith(".png")){
+            } else if (inputLine.endsWith(".png")){
                 type = "image/png";
-            }
-            if(inputLine.endsWith(".txt")){
+            } else if (inputLine.endsWith(".txt")){
                 type = "text/plain";
-            }
-            if(inputLine.endsWith(".jpeg") || inputLine.endsWith("jpg")){
+            } else if (inputLine.endsWith(".jpeg") || inputLine.endsWith("jpg")){
                 type = "image/jpeg";
-            }
-            if(inputLine.endsWith(".pdf")){
+            } else if (inputLine.endsWith(".pdf")){
                 type = "application/pdf";
+            } else {
+                type = "application/octet-stream";
             }
-            String header =  "HTTP/1.1 200 OK \r\n";
+            String header = "HTTP/1.O 200 OK \r\n";
             header += "Content-Length: " + F.length() + "\r\n";
             header += "Content-Type: " + type + "\r\n";
+            header += "Connection: close\r\n";
             return header;
-        } catch(FileNotFoundException e){
+        } else {
+            System.out.println("DNE");
+            String path = inputLine;
 
-            String path = inputLine.substring(3);
 
             try{
                 File redir = new File("www/redirect.defs");
@@ -148,9 +149,10 @@ public class SimpleWebServer{
 
                 while(s.hasNextLine()){
                     String[] stuff = s.nextLine().split(" ");
-                    if(stuff[0].equals(path)){
-                        String header = "HTTP/1.1 301 Redirect \r\n";
-                        header += "Location: " + stuff[1] +"\r\n";
+                    if (stuff[0].equals("/" + path)){
+                        String header = "HTTP/1.0 301 Redirect\r\n";
+                        header += "Location: " + stuff[1] + "\r\n";
+                        header += "Connection: close\r\n";
                         return header;
                     }
                 }
@@ -158,7 +160,9 @@ public class SimpleWebServer{
             } catch(FileNotFoundException e2){}
 
 
-            return "HTTP/1.1 404 Not Found";
+            String header = "HTTP/1.1 404 Not Found\r\n";
+            header += "Connection: close\r\n";
+            return header;
         }
     }
 }
