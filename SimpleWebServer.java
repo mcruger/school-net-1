@@ -9,7 +9,6 @@
 import java.net.*;
 import java.io.*;
 import java.util.Scanner;
-import java.util.Timer;
 
 /**
  * ****************************************
@@ -25,9 +24,6 @@ import java.util.Timer;
  */
 
 public class SimpleWebServer{
-
-    public static final long TIMEOUT = 15000;
-
     public static void main(String[] args) throws IOException{
 
         boolean bRedirect = false;
@@ -47,30 +43,23 @@ public class SimpleWebServer{
         //boolean thinking = true;
 
         ServerSocket serverSocket = new ServerSocket(portNum);
-        Socket clientSocket = serverSocket.accept();
 
-        boolean holding = false;
-        long startTime = -TIMEOUT;
+        //boolean holding = false;
 
         while(true){
 
             try{
                 //init ServerSocket and Socket to send/receive messages from client
                 //ServerSocket serverSocket = new ServerSocket(portNum);
-//                if(holding && System.currentTimeMillis()-startTime < TIMEOUT){
-//                    clientSocket = clientSocket;
-//                } else{
-//                  clientSocket = serverSocket.accept();
-//                }
+                Socket clientSocket = serverSocket.accept();
 
                 //init PrintWriter and BufferedReader to send/receive messages to/from client socket
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
                 //capture input sent from client
-                int a = 0;
+                String inputLine;
 
-                String
                 if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
@@ -96,30 +85,19 @@ public class SimpleWebServer{
                         }
                     }
 
-//                    if(inputLine.contains("Connection: keep-alive")){
-//                        if(startTime == -TIMEOUT){
-//                            startTime = System.currentTimeMillis();
-//                        }
-//                        holding = true;
-//                    } else {
-//                        startTime = -TIMEOUT;
-//                        holding = false;
-//                        clientSocket.close();
-//                    }
+                    clientSocket.close();
+                    continue;
 
                 } else if (inputLine.startsWith("HEAD")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1)));
 
-                    startTime = -TIMEOUT;
                     clientSocket.close();
+                    continue;
                 } else {
                     out.writeBytes("HTTP/ 403 Invalid Request\r\nConnection: close\r\n");
-                    //holding = false;
-                    startTime = -TIMEOUT;
                     clientSocket.close();
                 }
-                continue;
                 //out.println("Echo" + inputLine);
                 //output the message to console received from the client
 
