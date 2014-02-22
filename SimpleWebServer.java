@@ -24,6 +24,9 @@ import java.util.Scanner;
  */
 
 public class SimpleWebServer{
+
+    public static final int TIMEOUT = 15000;
+
     public static void main(String[] args) throws IOException{
 
         boolean bRedirect = false;
@@ -44,14 +47,26 @@ public class SimpleWebServer{
 
         ServerSocket serverSocket = new ServerSocket(portNum);
 
-        //boolean holding = false;
+        boolean holding = false;
+        Socket hold = null;
 
         while(true){
 
             try{
                 //init ServerSocket and Socket to send/receive messages from client
                 //ServerSocket serverSocket = new ServerSocket(portNum);
-                Socket clientSocket = serverSocket.accept();
+
+                Socket clientSocket;
+                if(holding){
+                    System.out.println("Holding");
+                    clientSocket = hold;
+                    clientSocket.setSoTimeout(TIMEOUT);
+                }
+                else {
+                    System.out.println("Cutting");
+                    clientSocket = serverSocket.accept();
+
+                }
 
                 //init PrintWriter and BufferedReader to send/receive messages to/from client socket
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
@@ -60,11 +75,12 @@ public class SimpleWebServer{
                 //capture input sent from client
                 String inputLine;
 
+
                 if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
 
-                    String header = getHeader(inputLine.substring(5, nHTTPStart - 1));
+                    String header = getHeader(inputLine.substring(5, nHTTPStart - 1), in);
                     out.writeBytes(header + "\r\n");
                     if (header.contains("200 OK")){
                         FileInputStream fin2 = new FileInputStream(fin);
@@ -85,17 +101,30 @@ public class SimpleWebServer{
                         }
                     }
 
-                    clientSocket.close();
-                    continue;
+                    if(header.contains("Connection: keep-alive")){
+                        holding = true;
+                        hold = clientSocket;
+                        System.out.println("Still Alive");
+                        continue;
+
+                    } else {
+                        holding = false;
+                        clientSocket.close();
+                        System.out.println("Connection Closed");
+                        continue;
+
+                    }
 
                 } else if (inputLine.startsWith("HEAD")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
-                    out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1)));
+                    out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1), in));
 
+                    holding = false;
                     clientSocket.close();
                     continue;
                 } else {
                     out.writeBytes("HTTP/ 403 Invalid Request\r\nConnection: close\r\n");
+                    holding = false;
                     clientSocket.close();
                 }
                 //out.println("Echo" + inputLine);
@@ -106,21 +135,28 @@ public class SimpleWebServer{
                 //catch errors listening on port used for server/client socket connections
                 System.out.println("Error listening on port " + portNum + " or listening for a connection");
                 System.out.println(e.getMessage());
+                holding = false;
                 //break;
             }
         }
 
     }
 
-    public static String getHeader(String inputLine){
+    public static String getHeader(String inputLine, BufferedReader in) throws IOException{
         File F = new File(inputLine);
+        String fullRequest = "";
+        String line;
+        while((line = in.readLine()) != null){
+            if(line.length() == 0){break;}
+            fullRequest += line + "\n";
+        }
         if (F.exists()){
             System.out.println("Exists");
             //Scanner s = new Scanner(F);
             String type = null;
             if (inputLine.endsWith(".defs")){
                 return "HTTP/1.1 403 Forbidden \r\nConnection: close\r\n";
-            } else if (inputLine.endsWith(".html")){
+            } else if (inputLine.endsWith(".html") || inputLine.endsWith(".htm")){
                 type = "text/html";
             } else if (inputLine.endsWith(".png")){
                 type = "image/png";
@@ -136,7 +172,9 @@ public class SimpleWebServer{
             String header = "HTTP/1.O 200 OK \r\n";
             header += "Content-Length: " + F.length() + "\r\n";
             header += "Content-Type: " + type + "\r\n";
-            header += "Connection: close\r\n";
+            System.out.println(fullRequest);
+            header += fullRequest.contains("Connection: keep-alive") || fullRequest.contains("Connection: Keep-Alive") ?
+            "Connection: keep-alive\r\n" :"Connection: close\r\n";
             return header;
         } else {
             System.out.println("DNE");
