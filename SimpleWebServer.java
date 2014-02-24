@@ -60,85 +60,93 @@ public class SimpleWebServer{
 
                 //check to see if we're holding on persistent connection
                 if(holding){
-                    System.out.println("Holding");
+                    //System.out.println("Holding");
                     clientSocket = hold;
                     clientSocket.setSoTimeout(TIMEOUT);
                 }
                 else {
-                    System.out.println("Cutting");
+                    //System.out.println("Cutting");
                     clientSocket = serverSocket.accept();
+                    clientSocket.setSoTimeout(0);
                 }
 
                 //init PrintWriter and DataOutputStream to receive requests and send responses
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-                String inputLine;
+                String inputLine = in.readLine();
 
-                //handle get requests
-                if ((inputLine = in.readLine()).startsWith("GET")){
-                    int nHTTPStart = inputLine.indexOf("HTTP/");
-                    File fin = new File(inputLine.substring(5, nHTTPStart - 1));
+                //this check is necessary on the uchicago cs linux machines
+                //was getting null pointer exception without it
+                if(inputLine != null){
+                    //handle get requests
+                    if (inputLine.startsWith("GET")){
+                        int nHTTPStart = inputLine.indexOf("HTTP/");
+                        File fin = new File(inputLine.substring(5, nHTTPStart - 1));
 
-                    //build header
-                    String header = getHeader(inputLine.substring(5, nHTTPStart - 1), in);
+                        //build header
+                        String header = getHeader(inputLine.substring(5, nHTTPStart - 1), in);
 
-                    //blank line between header and body
-                    out.writeBytes(header + "\r\n");
+                        //blank line between header and body
+                        out.writeBytes(header + "\r\n");
 
-                    //good request
-                    if (header.contains("200 OK")){
-                        FileInputStream fin2 = new FileInputStream(fin);
+                        //good request
+                        if (header.contains("200 OK")){
+                            FileInputStream fin2 = new FileInputStream(fin);
 
-                        //get contents of requested file and output it
-                        int numBytes = (int) fin.length();
-                        System.out.println(numBytes);
-                        byte[] fileInBytes = new byte[numBytes];
-                        fin2.read(fileInBytes);
-                        out.write(fileInBytes, 0, numBytes);
+                            //get contents of requested file and output it
+                            int numBytes = (int) fin.length();
+                            //System.out.println(numBytes);
+                            byte[] fileInBytes = new byte[numBytes];
+                            fin2.read(fileInBytes);
+                            out.write(fileInBytes, 0, numBytes);
 
-                    //redirect
-                    } else if (header.contains("301 Mo")){
-                        String site = header.substring(header.lastIndexOf(": ") + 2);
-                        URL urlSite = new URL(site);
-                        BufferedReader urlin = new BufferedReader(new InputStreamReader(urlSite.openStream()));
-                        String example;
-                        while((example = urlin.readLine()) != null){
-                            out.writeBytes(example);
+                        //redirect
+                        } else if (header.contains("301 Mo")){
+                            String site = header.substring(header.lastIndexOf(": ") + 2);
+                            URL urlSite = new URL(site);
+                            BufferedReader urlin = new BufferedReader(new InputStreamReader(urlSite.openStream()));
+                            String example;
+                            while((example = urlin.readLine()) != null){
+                                out.writeBytes(example);
+                            }
+                        } else if (header.contains("404")){
+
+                            out.writeBytes("<html><head><title>Not Found</title></head><body><h1><b><font color='red'>Sorry, the object you requested was not found.</font></b></h1></body><html>");
+
                         }
-                    }
 
-                    //check for persistent connections
-                    if(header.contains("Connection: Keep-Alive")){
-                        holding = true;
-                        hold = clientSocket;
-                        //System.out.println("Still Alive");
-                        continue;
+                        //check for persistent connections
+                        if(header.contains("Connection: Keep-Alive")){
+                            holding = true;
+                            hold = clientSocket;
+                            //System.out.println("Still Alive");
+                            continue;
 
-                    } else {
+                        } else {
+                            holding = false;
+                            clientSocket.close();
+                            //System.out.println("Connection Closed");
+                            continue;
+
+                        }
+
+                    //head request
+                    } else if (inputLine.startsWith("HEAD")){
+                        int nHTTPStart = inputLine.indexOf("HTTP/");
+                        out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1), in));
+
                         holding = false;
                         clientSocket.close();
-                        System.out.println("Connection Closed");
                         continue;
 
+                    //invalid request type (we only support head and get)
+                    } else {
+                        out.writeBytes("HTTP/ 403 Invalid Request\r\nConnection: close\r\n");
+                        holding = false;
+                        clientSocket.close();
                     }
-
-                //head request
-                } else if (inputLine.startsWith("HEAD")){
-                    int nHTTPStart = inputLine.indexOf("HTTP/");
-                    out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1), in));
-
-                    holding = false;
-                    clientSocket.close();
-                    continue;
-
-                //invalid request type (we only support head and get)
-                } else {
-                    out.writeBytes("HTTP/ 403 Invalid Request\r\nConnection: close\r\n");
-                    holding = false;
-                    clientSocket.close();
                 }
-
             } catch(IOException e){
                 //catch errors listening for requests and is used to catch persistent connection timeouts
                 System.out.println("Error listening on port " + portNum + " or listening for a connection");
@@ -220,10 +228,6 @@ public class SimpleWebServer{
             //requested file not found, return 404
             String header = "HTTP/1.1 404 Not Found\r\n";
             header += "Connection: close\r\n";
-            header += "Content-type: text/html\r\n";
-            header += "Content-length: 135\r\n\r\n";
-            header += "<html><head><title>Not Found</title></head><body>Sorry, the object you requested was not found.</body><html>";
-
             return header;
         }
     }
