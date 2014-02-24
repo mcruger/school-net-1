@@ -60,12 +60,13 @@ public class SimpleWebServer{
 
                 //check to see if we're holding on persistent connection
                 if(holding){
-                    //System.out.println("Holding");
+                    System.out.println("Holding");
                     clientSocket = hold;
                     clientSocket.setSoTimeout(TIMEOUT);
+                    holding = false;
                 }
                 else {
-                    //System.out.println("Cutting");
+                    System.out.println("Cutting");
                     clientSocket = serverSocket.accept();
                     clientSocket.setSoTimeout(0);
                 }
@@ -152,6 +153,7 @@ public class SimpleWebServer{
                 System.out.println("Error listening on port " + portNum + " or listening for a connection");
                 System.out.println(e.getMessage());
                 holding = false;
+                hold = null;
             }
         }
 
@@ -197,12 +199,15 @@ public class SimpleWebServer{
             }
 
             //put together response  header
-            String header = "HTTP/1.0 200 OK \r\n";
+            String header = "HTTP/1.1 200 OK \r\n";
             header += "Content-Length: " + F.length() + "\r\n";
             header += "Content-Type: " + type + "\r\n";
             //System.out.println(fullRequest);
             header += fullRequest.contains("Connection: keep-alive") || fullRequest.contains("Connection: Keep-Alive") ?
-            "Connection: keep-alive\r\n" :"Connection: close\r\n";
+            "Connection: Keep-Alive\r\n" : "Connection: close\r\n";
+            if (header.contains("Connection: Keep-Alive")){
+               header += "Keep-Alive: timeout=15, max=100\r\n";
+            }
             return header;
         } else {
             //System.out.println("DNE");
@@ -216,7 +221,7 @@ public class SimpleWebServer{
                 while(s.hasNextLine()){
                     String[] stuff = s.nextLine().split(" ");
                     if (stuff[0].equals("/" + path)){
-                        String header = "HTTP/1.0 301 Redirect\r\n";
+                        String header = "HTTP/1.1 301 Redirect\r\n";
                         header += "Location: " + stuff[1] + "\r\n";
                         header += "Connection: close\r\n";
                         return header;
