@@ -25,6 +25,7 @@ import java.util.Scanner;
 
 public class SimpleWebServer{
 
+    //timeout for persistent connections. 15 seconds.
     public static final int TIMEOUT = 15000;
 
     public static void main(String[] args) throws IOException{
@@ -43,20 +44,21 @@ public class SimpleWebServer{
 
         //set port string from flag to int
         int portNum = Integer.parseInt(port);
-        //boolean thinking = true;
 
+        //init socket to listen on port passed in
         ServerSocket serverSocket = new ServerSocket(portNum);
 
+        //flag and "dummy" value for persistent connections
         boolean holding = false;
         Socket hold = null;
 
         while(true){
 
             try{
-                //init ServerSocket and Socket to send/receive messages from client
-                //ServerSocket serverSocket = new ServerSocket(portNum);
 
                 Socket clientSocket;
+
+                //check to see if we're holding on persistent connection
                 if(holding){
                     System.out.println("Holding");
                     clientSocket = hold;
@@ -65,32 +67,37 @@ public class SimpleWebServer{
                 else {
                     System.out.println("Cutting");
                     clientSocket = serverSocket.accept();
-
                 }
 
-                //init PrintWriter and BufferedReader to send/receive messages to/from client socket
+                //init PrintWriter and DataOutputStream to receive requests and send responses
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-                //capture input sent from client
                 String inputLine;
 
-
+                //handle get requests
                 if ((inputLine = in.readLine()).startsWith("GET")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     File fin = new File(inputLine.substring(5, nHTTPStart - 1));
 
+                    //build header
                     String header = getHeader(inputLine.substring(5, nHTTPStart - 1), in);
+
+                    //blank line between header and body
                     out.writeBytes(header + "\r\n");
+
+                    //good request
                     if (header.contains("200 OK")){
                         FileInputStream fin2 = new FileInputStream(fin);
 
-                        //out.writeBytes("\r\n");
+                        //get contents of requested file and output it
                         int numBytes = (int) fin.length();
                         System.out.println(numBytes);
                         byte[] fileInBytes = new byte[numBytes];
                         fin2.read(fileInBytes);
                         out.write(fileInBytes, 0, numBytes);
+
+                    //redirect
                     } else if (header.contains("301 Mo")){
                         String site = header.substring(header.lastIndexOf(": ") + 2);
                         URL urlSite = new URL(site);
@@ -101,10 +108,11 @@ public class SimpleWebServer{
                         }
                     }
 
-                    if(header.contains("Connection: keep-alive")){
+                    //check for persistent connections
+                    if(header.contains("Connection: Keep-Alive")){
                         holding = true;
                         hold = clientSocket;
-                        System.out.println("Still Alive");
+                        //System.out.println("Still Alive");
                         continue;
 
                     } else {
@@ -115,6 +123,7 @@ public class SimpleWebServer{
 
                     }
 
+                //head request
                 } else if (inputLine.startsWith("HEAD")){
                     int nHTTPStart = inputLine.indexOf("HTTP/");
                     out.writeBytes(getHeader(inputLine.substring(6, nHTTPStart - 1), in));
@@ -122,36 +131,45 @@ public class SimpleWebServer{
                     holding = false;
                     clientSocket.close();
                     continue;
+
+                //invalid request type (we only support head and get)
                 } else {
                     out.writeBytes("HTTP/ 403 Invalid Request\r\nConnection: close\r\n");
                     holding = false;
                     clientSocket.close();
                 }
-                //out.println("Echo" + inputLine);
-                //output the message to console received from the client
-
 
             } catch(IOException e){
-                //catch errors listening on port used for server/client socket connections
+                //catch errors listening for requests and is used to catch persistent connection timeouts
                 System.out.println("Error listening on port " + portNum + " or listening for a connection");
                 System.out.println(e.getMessage());
                 holding = false;
-                //break;
             }
         }
 
     }
 
+    /**
+     * Builds out header to return with response to recived HTTP request
+     * @param inputLine
+     * @param in
+     * @return
+     * @throws IOException
+     */
     public static String getHeader(String inputLine, BufferedReader in) throws IOException{
         File F = new File(inputLine);
         String fullRequest = "";
         String line;
+
+        //capture full request to look for keep alive
         while((line = in.readLine()) != null){
             if(line.length() == 0){break;}
             fullRequest += line + "\n";
         }
+
+        //check for request type from request header
         if (F.exists()){
-            System.out.println("Exists");
+            //System.out.println("Exists");
             //Scanner s = new Scanner(F);
             String type = null;
             if (inputLine.endsWith(".defs")){
@@ -169,18 +187,20 @@ public class SimpleWebServer{
             } else {
                 type = "application/octet-stream";
             }
-            String header = "HTTP/1.O 200 OK \r\n";
+
+            //put together response  header
+            String header = "HTTP/1.0 200 OK \r\n";
             header += "Content-Length: " + F.length() + "\r\n";
             header += "Content-Type: " + type + "\r\n";
-            System.out.println(fullRequest);
+            //System.out.println(fullRequest);
             header += fullRequest.contains("Connection: keep-alive") || fullRequest.contains("Connection: Keep-Alive") ?
             "Connection: keep-alive\r\n" :"Connection: close\r\n";
             return header;
         } else {
-            System.out.println("DNE");
+            //System.out.println("DNE");
             String path = inputLine;
 
-
+            //check redirect.defs to see if request is listed in redirects file
             try{
                 File redir = new File("www/redirect.defs");
                 Scanner s = new Scanner(redir);
@@ -197,9 +217,13 @@ public class SimpleWebServer{
 
             } catch(FileNotFoundException e2){}
 
-
+            //requested file not found, return 404
             String header = "HTTP/1.1 404 Not Found\r\n";
             header += "Connection: close\r\n";
+            header += "Content-type: text/html\r\n";
+            header += "Content-length: 135\r\n\r\n";
+            header += "<html><head><title>Not Found</title></head><body>Sorry, the object you requested was not found.</body><html>";
+
             return header;
         }
     }
