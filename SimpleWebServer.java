@@ -38,6 +38,7 @@ public class SimpleWebServer{
 
         //validate port flag, show usage if incorrect
         if (port == null || port.isEmpty() || port == ""){
+
             System.err.println("Usage: java -Dport=<port number> ServerEcho");
             System.exit(1);
         }
@@ -56,16 +57,20 @@ public class SimpleWebServer{
 
             try{
 
-                Socket clientSocket;
+                Socket clientSocket = null;
 
                 //check to see if we're holding on persistent connection
                 if(holding){
                     System.out.println("Holding");
                     clientSocket = hold;
+                    clientSocket.setKeepAlive(true);
                     clientSocket.setSoTimeout(TIMEOUT);
                     holding = false;
                 }
                 else {
+//                    if(clientSocket != null){
+//                        clientSocket.close();
+//                    }
                     System.out.println("Cutting");
                     clientSocket = serverSocket.accept();
                     clientSocket.setSoTimeout(0);
@@ -153,7 +158,7 @@ public class SimpleWebServer{
                 System.out.println("Error listening on port " + portNum + " or listening for a connection");
                 System.out.println(e.getMessage());
                 holding = false;
-                hold = null;
+                //hold = null;
             }
         }
 
@@ -206,7 +211,7 @@ public class SimpleWebServer{
             header += fullRequest.contains("Connection: keep-alive") || fullRequest.contains("Connection: Keep-Alive") ?
             "Connection: Keep-Alive\r\n" : "Connection: close\r\n";
             if (header.contains("Connection: Keep-Alive")){
-               header += "Keep-Alive: timeout=15, max=100\r\n";
+               header += "Keep-Alive: timeout=" + TIMEOUT/1000 + ", max=100\r\n";
             }
             return header;
         } else {
