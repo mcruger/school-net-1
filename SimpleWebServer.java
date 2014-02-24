@@ -26,7 +26,7 @@ import java.util.Scanner;
 public class SimpleWebServer{
 
     //timeout for persistent connections. 15 seconds.
-    public static final int TIMEOUT = 15000;
+    public static final int TIMEOUT = 1500000;
 
     public static void main(String[] args) throws IOException{
 
